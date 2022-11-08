@@ -88,12 +88,32 @@ process get_index{
   """
 }
 
+/********************************
+* fastqc
+********************************/
+files.into{files;qc_files}
 
-//fastqc
+process fastqc {
+  publishDir "$params.output/logs_and_QC/fastqc", mode: 'copy'
 
+  input:
+  set id, file(fq) from qc_files
 
+  output:
+  file "*fastqc.*"
 
-//Trimming adapters and filtering rRNA reads
+  script:
+  """
+  fastqc $fq
+  """
+
+}
+
+/********************************
+* preprocess reads
+********************************/
+
+//Trimming adapters and umi
 
 process trim_fastp  {
   publishDir "$params.output/logs_and_QC/fastp", mode: 'copy', pattern: '*.html'
@@ -140,6 +160,7 @@ script:
 }
 
 //rRNA filter
+
 /*
 process rRNA {
 
@@ -162,9 +183,12 @@ bowtie2 \
 
 }
 */
-
+/********************************
+* alignments
+********************************/
 trimmed.into{trimmed_sp;trimmed}
 
+// spike in
 process align_w_spikein {
 publishDir "$params.output/logs_and_QC/align", mode: 'copy', pattern: '*.log'
 
@@ -211,8 +235,8 @@ process get_spike_bam {
   '''
 
 }
-// Aligning to experimental genome
 
+// Aligning to experimental genome
 process align {
 publishDir "$params.output/logs_and_QC/align", mode: 'copy', pattern: '*.log'
 
@@ -252,6 +276,10 @@ process filter_align {
   """
 }
 
+/********************************
+* dedup based on umi
+********************************/
+
 allbam=align_bam.concat(spike_bam)
 
 process dedup_umi{
@@ -275,6 +303,17 @@ process dedup_umi{
   > ${reads.getSimpleName()}_deDup.log
   """
 }
+
+/********************************
+* Unnormalized bw files
+********************************/
+
+
+
+
+/********************************
+* Summary table
+********************************/
 
 process table {
   publishDir "$params.output/logs_and_QC/info", mode: 'copy', pattern: 'infoTable.tsv'

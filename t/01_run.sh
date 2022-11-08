@@ -23,6 +23,35 @@ if [ ! $(grep "umi_loc=per_read" ${T_DIR}/both/logs_and_QC/fastp/*.log | wc -l )
   fi
 
 
+  #### check output ####
+
+  ## right folders
+  if [ ! -d ${T_DIR}/both ]; then
+      echo "no results"
+      exit 1
+  fi
+
+  if [ ! $(ls -1q ${T_DIR}/both/ | wc -l) -eq 5 ] ; then # counts,
+        echo "wrong number output dirs"
+      #exit 1
+  fi
+
+  if [ ! -d ${T_DIR}/both/logs_and_QC ]; then
+      echo "no logs"
+      exit 1
+  fi
+
+  if [ ! -d ${T_DIR}/both/bams ]; then
+      echo "no bams"
+      exit 1
+  fi
+
+  if [ ! -d ${T_DIR}/both/bw ]; then
+      echo "no bw"
+      exit 1
+  fi
+
+
 #  nextflow run ../PROalign.nf -profile test_local \
 #    --files "test_files/fastq/pe/*_R{1,2}_*.fastq" \
 #    --output ${T_DIR}/five \
