@@ -5,12 +5,11 @@
 **********************/
 params.output="$baseDir/results/"
 
-params.THREADS=50 // Threads to use for multithreaded applications
 params.UMI_LEN=6  // Length of UMI in basepairs
-
-// UMI Flags (set to Y or N as appropriate)
-params.FIVEP_UMI=true // Is there a UMI on the 5' end of the read?
-params.THREEP_UMI=true // Is there a UMI on the 3' end of the read?
+// Mapq value for filtering multimappers
+params.MAPQ=10
+//params.FIVEP_UMI=true // Is there a UMI on the 5' end of the read?
+//params.THREEP_UMI=true // Is there a UMI on the 3' end of the read?
 
 if (params.FIVEP_UMI & params.THREEP_UMI){
   params.umi=true
@@ -25,8 +24,7 @@ else if (params.THREEP_UMI){
   params.umi_loc="read1"
 }
 else {
-  params.umi=false
-  params.umi_loc=false
+  exit 1, "Pipeline only makes sense with UMI"
 }
 
 // Adaptor sequences to clip. Default = Tru-Seq small RNA
@@ -34,18 +32,17 @@ params.ADAPTOR_1="TGGAATTCTCGGGTGCCAAGGAACTCCAGTCAC"
 params.ADAPTOR_2="GATCGTCGGACTGTAGAACTCTGAACGTGTAGATCTCGGTGGTCGCCGTATCATT"
 
 params.indexName = "spombe"
-params.index="library://elin.axelsson/index/index_bowtie2_spombe:v2.4.1-release-55"
-params.spike_name="spombe_cerevisiae"
-params.index_spike="library://elin.axelsson/newindex/index_bowtie2_spombe_scerevisiae:v2.4.1-release55"
-params.SPIKE_PREFIX="R64" //This is the prefix you've used on your spike in chromosomes, ie >hg38chr1
-//RDNA="/home/jaj256/genome/dm3hg38/dm3hg38rDNA"
+params.index = "library://elin.axelsson/index/index_bowtie2_spombe:v2.4.1-release-55"
+params.spike_name = "spombe_cerevisiae"
+params.index_spike = "library://elin.axelsson/newindex/index_bowtie2_spombe_scerevisiae:v2.4.1-release55"
+params.SPIKE_PREFIX = "R64" //This is the prefix you've used on your spike in chromosomes, ie >hg38chr1
+params.rdnaName = "spombe_rdna"
+params.index_rdna = "library://elin.axelsson/newindex/index_bowtie2_spombe_rdna:v2.4.1_zach"
 
-// Mapq value for filtering multimappers
-params.MAPQ=10
 
 // channel
 
-files = Channel.fromFilePairs( params.files, size: -1 ).ifEmpty { error "Invalid path: point to path containing fq files using --files flag" }
+files = Channel.fromFilePairs( params.files, size: -1 ).ifEmpty { error "Invalid path: point to path containing fq files using --files flag (Paired-end only)" }
 
 
 /********************************
@@ -87,6 +84,22 @@ process get_index{
   singularity run ${params.index}
   """
 }
+// rDNA
+process get_rdna_index{
+
+  input:
+  params.index_rdna
+
+  output:
+  file params.rdnaName into rdna
+
+  script:
+  """
+  singularity run ${params.index_rdna}
+  """
+}
+
+
 
 /********************************
 * fastqc
@@ -128,7 +141,6 @@ output:
   file("${id}_fastp.log") into fastp_log
 
 script:
-  if (params.umi)
   """
   fastp \
       -i ${reads[0]} \
@@ -144,56 +156,46 @@ script:
       -c \
       --overlap_len_require 15 2> ${id}_fastp.log
     """
-    else
-    """
-    fastp \
-      -i ${reads[0]} \
-      -I ${reads[1]} \
-      -o ${id}_R1.fq.gz \
-      -O ${id}_R2.fq.gz \
-      --adapter_sequence ${params.ADAPTOR_1} \
-      --adapter_sequence_r2 ${params.ADAPTOR_2} \
-      --html ${id}_fastp.html \
-      -c \
-      --overlap_len_require 15 2> ${id}_fastp.log
-    """
 }
 
 //rRNA filter
 
-/*
 process rRNA {
-
+publishDir "$params.output/logs_and_QC/rRNA", mode: 'copy', pattern: '*.log'
   input:
   set id, file(reads) from trimmed
+  file(index) from rdna
 
   output:
+  set id, file("${id}_1.fastq"), file("${id}_2.fastq") into filtered
+  file("${id}_rRNA_bowtie.log") into rRNA_bowtie_log
 
-script:
-"""
-bowtie2 \
---fast-local \
---un-conc trimmedFastq/${id}.fastq \
---interleaved - \
--x ${RDNA} 2> logs/rRNA/${id}_rRNA_bowtie.log) > /dev/null
-
-
-
-"""
+  script:
+  """
+  bowtie2 \
+  -1 ${reads[0]} \
+  -2  ${reads[1]} \
+  --fast-local \
+  --un-conc ${id}.fastq \
+  --interleaved - \
+  -x ${index}/${index} 2> ${id}_rRNA_bowtie.log
+  mv ${id}.1.fastq ${id}_1.fastq
+  mv ${id}.2.fastq ${id}_2.fastq
+  """
 
 }
-*/
+
 /********************************
 * alignments
 ********************************/
-trimmed.into{trimmed_sp;trimmed}
+filtered.into{filtered_sp;filtered}
 
 // spike in
 process align_w_spikein {
 publishDir "$params.output/logs_and_QC/align", mode: 'copy', pattern: '*.log'
 
   input:
-  set id, file(reads) from trimmed_sp
+  set id, file(read1), file(read2) from filtered_sp
   file(index) from comb
 
   output:
@@ -209,8 +211,8 @@ publishDir "$params.output/logs_and_QC/align", mode: 'copy', pattern: '*.log'
       --no-mixed \
       --no-discordant \
       -x $index/$index \
-      -1 ${reads[0]} \
-      -2  ${reads[1]} \
+      -1 ${read1} \
+      -2  ${read2} \
       -S spike_${id}.sam 2> ${id}_spikeAlign.log
  """
 
@@ -241,7 +243,7 @@ process align {
 publishDir "$params.output/logs_and_QC/align", mode: 'copy', pattern: '*.log'
 
   input:
-  set id, file(reads) from trimmed
+  set id, file(read1), file(read2) from filtered
   file(index) from experiment
 
   output:
@@ -254,8 +256,8 @@ publishDir "$params.output/logs_and_QC/align", mode: 'copy', pattern: '*.log'
   --local \
   --sensitive-local \
   -x $index/$index \
-  -1 ${reads[0]} \
-  -2 ${reads[1]} \
+  -1 ${read1} \
+  -2 ${read2} \
   -S ${id}.sam 2> ${id}_align.log
   """
 }
@@ -280,17 +282,17 @@ process filter_align {
 * dedup based on umi
 ********************************/
 
-allbam=align_bam.concat(spike_bam)
+allbam=align_bam.combine(Channel.of('main')).concat(spike_bam.combine(Channel.of('spikein')))
 
 process dedup_umi{
   publishDir "$params.output/logs_and_QC/dedup", mode: 'copy', pattern: '*.log'
-  publishDir "$params.output/bams/dedup", mode: 'copy', pattern: '*.bam'
+  publishDir "$params.output/bams/dedup", mode: 'copy', pattern: '*main_deDuped.bam'
 
   input:
-  set id, file(reads), file(index) from allbam
+  set id, file(reads), file(index), type from allbam
 
   output:
-  set id, file("*_deDuped.bam") into dedup
+  set id, type, file("*_deDuped.bam") into dedup
   file("*.log") into de_log
 
   script:
@@ -299,17 +301,83 @@ process dedup_umi{
   -I ${reads} \
   --umi-separator=":" \
   --paired \
-  -S ${reads.getSimpleName()}_deDuped.bam \
-  > ${reads.getSimpleName()}_deDup.log
+  -S ${id}_${type}_deDuped.bam \
+  > ${id}_${type}_deDup.log
   """
 }
+/********************************
+* index
+********************************/
+
+process index {
+
+  input:
+  set id, type, file(reads) from dedup
+
+  output:
+  set id, type, file("${reads}"), file("${reads}.bai") into dedup_i
+
+  script:
+  """
+  samtools index ${reads}
+  """
+}
+
 
 /********************************
 * Unnormalized bw files
 ********************************/
+dedup_i.into{f_dedup;r_dedup}
 
+process bw_fwd {
+publishDir "$params.output/bw/unnorm", mode: 'copy', pattern: '*.bw'
 
+  input:
+  set id, type, file(reads), file(bai) from f_dedup
 
+  output:
+  set id, file("*_fwd.bw")
+
+  when:
+  type=="main"
+
+  script:
+  """
+  bamCoverage \
+  --bam ${reads} \
+  --skipNonCoveredRegions \
+  --outFileName ${id}_fwd.bw \
+  --binSize 1 \
+  --normalizeUsing None \
+  --Offset 1 \
+  --samFlagInclude 82
+  """
+}
+
+process bw_rev {
+publishDir "$params.output/bw/unnorm", mode: 'copy', pattern: '*.bw'
+
+  input:
+  set id, type, file(reads), file(bai) from r_dedup
+
+  output:
+  set id, file("*_rev.bw")
+
+  when:
+  type=="main"
+
+  script:
+  """
+  bamCoverage \
+  --bam ${reads} \
+  --skipNonCoveredRegions \
+  --outFileName ${id}_rev.bw \
+  --binSize 1 \
+  --normalizeUsing None \
+  --Offset 1 \
+  --samFlagInclude 98
+  """
+}
 
 /********************************
 * Summary table
@@ -323,6 +391,7 @@ process table {
   file al from align_log.collect()
   file sp from spike_log.collect()
   file fa from fastp_log.collect()
+  file rr from rRNA_bowtie_log.collect()
 
   output:
   file "infoTable.tsv"
@@ -368,16 +437,18 @@ process table {
       B_CONC_PER=$(awk -v a="${B_CONC}" -v b="${PASSED_FILTERS}" 'BEGIN { print a/b*100}')%
       B_MULTI_PER=$(awk -v a="${B_MULTI}" -v b="${PASSED_FILTERS}" 'BEGIN { print a/b*100 }')%
       B_UNAL_PER=$(awk -v a="${B_UNAL}" -v b="${PASSED_FILTERS}" 'BEGIN { print a/b*100 }')%
-      UNIQ_MAPPED=$(cat ${SAMPLE}_deDup.log |
+      UNIQ_MAPPED=$(cat ${SAMPLE}_main_deDup.log |
       grep "Input Reads:" | awk '{print $10}')
-      UNIQ_MAPPED_DEDUP=$(cat ${SAMPLE}_spike_deDup.log |
+      UNIQ_MAPPED_DEDUP=$(cat ${SAMPLE}_main_deDup.log |
       grep "Number of reads out:" | awk '{print $8}')
       PER_DUPS=$(awk -v a="${UNIQ_MAPPED_DEDUP}" -v b="${UNIQ_MAPPED}" 'BEGIN { print (1-a/b)*100 }')%
-      UNIQ_MAPPED_SPIKE=$(cat ${SAMPLE}_spike_deDup.log |
+      UNIQ_MAPPED_SPIKE=$(cat ${SAMPLE}_spikein_deDup.log |
       grep "Input Reads:" | awk '{print $10}')
-      UNIQ_MAPPED_DEDUP_SPIKE=$(cat ${SAMPLE}_spike_deDup.log |
+      UNIQ_MAPPED_DEDUP_SPIKE=$(cat ${SAMPLE}_spikein_deDup.log |
       grep "Number of reads out:" | awk '{print $8}')
       PER_DUPS_SPIKE=$(awk -v a="${UNIQ_MAPPED_DEDUP_SPIKE}" -v b="${UNIQ_MAPPED_SPIKE}" 'BEGIN { print (1-a/b)*100}')%
+      echo ${UNIQ_MAPPED_DEDUP_SPIKE}
+      echo ${UNIQ_MAPPED_SPIKE}
 
       echo -e $NAME'\t'\
       $RAW_READS'\t'\

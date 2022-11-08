@@ -3,14 +3,14 @@ set -o errexit
 set -o pipefail
 
 T_DIR="test_01"
+
+if [ -d "${T_DIR}/both" ]; then rm -Rf ${T_DIR}/both ; fi
 mkdir -p ${T_DIR}
 
-#
 
 nextflow run ../PROalign.nf -profile test_local \
   --files "test_files/fastq/pe/*_R{1,2}_*.fastq.gz" \
   --output ${T_DIR}/both \
-  --seqtype "PE" \
   --FIVEP_UMI true \
   --THREEP_UMI true \
   -w ${T_DIR}/work -resume
@@ -31,7 +31,7 @@ if [ ! $(grep "umi_loc=per_read" ${T_DIR}/both/logs_and_QC/fastp/*.log | wc -l )
       exit 1
   fi
 
-  if [ ! $(ls -1q ${T_DIR}/both/ | wc -l) -eq 5 ] ; then # counts,
+  if [ ! $(ls -1q ${T_DIR}/both/ | wc -l) -eq 3 ] ; then # counts,
         echo "wrong number output dirs"
       #exit 1
   fi
