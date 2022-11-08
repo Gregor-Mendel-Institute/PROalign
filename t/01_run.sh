@@ -8,7 +8,7 @@ mkdir -p ${T_DIR}
 #
 
 nextflow run ../PROalign.nf -profile test_local \
-  --files "test_files/fastq/pe/*_R{1,2}_*.fastq" \
+  --files "test_files/fastq/pe/*_R{1,2}_*.fastq.gz" \
   --output ${T_DIR}/both \
   --seqtype "PE" \
   --FIVEP_UMI true \
