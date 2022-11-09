@@ -413,7 +413,7 @@ process table {
       TRIMMED_READS=$(cat ${SAMPLE}_fastp.log |
       grep "total reads:" | tail -n 1 |
       awk '{print $3}')
-      PER_DIMER=$(awk -v a="${TRIMMED_READS}" -v b="${RAW_READS}" 'BEGIN { print  (1-a/b)*100 }')%
+      PER_DIMER=$(awk -v a="${TRIMMED_READS}" -v b="${RAW_READS}" 'BEGIN { print  (1-a/b)*100 }')
       INSERT_SIZE=$(cat ${SAMPLE}_fastp.log |
       grep "Insert size peak" |
       awk '{print $8}')
@@ -421,7 +421,7 @@ process table {
       grep "reads; of these:$" |
       awk '{print $1}')
       RRNA=$(awk -v a="${TRIMMED_READS}" -v b="${PASSED_FILTERS}" 'BEGIN { print a-b }')
-      PER_RRNA=$(awk -v a="${RRNA}" -v b="${RAW_READS}" 'BEGIN { print a/b*100 }')%
+      PER_RRNA=$(awk -v a="${RRNA}" -v b="${RAW_READS}" 'BEGIN { print (a/b)*100 }')
       B_CONC=$(cat ${SAMPLE}_align.log |
       grep "aligned concordantly exactly 1 time$" |
       awk '{print $1}')
@@ -434,19 +434,20 @@ process table {
       B_OAP=$(cat ${SAMPLE}_align.log |
       grep "overall alignment rate$" |
       awk '{print $1}')
-      B_CONC_PER=$(awk -v a="${B_CONC}" -v b="${PASSED_FILTERS}" 'BEGIN { print a/b*100}')%
-      B_MULTI_PER=$(awk -v a="${B_MULTI}" -v b="${PASSED_FILTERS}" 'BEGIN { print a/b*100 }')%
-      B_UNAL_PER=$(awk -v a="${B_UNAL}" -v b="${PASSED_FILTERS}" 'BEGIN { print a/b*100 }')%
+      B_CONC_PER=$(awk -v a="${B_CONC}" -v b="${PASSED_FILTERS}" 'BEGIN { print (a/b)*100}')
+      B_MULTI_PER=$(awk -v a="${B_MULTI}" -v b="${PASSED_FILTERS}" 'BEGIN { print (a/b)*100 }')
+      B_UNAL_PER=$(awk -v a="${B_UNAL}" -v b="${PASSED_FILTERS}" 'BEGIN { print (a/b)*100 }')
       UNIQ_MAPPED=$(cat ${SAMPLE}_main_deDup.log |
       grep "Input Reads:" | awk '{print $10}')
       UNIQ_MAPPED_DEDUP=$(cat ${SAMPLE}_main_deDup.log |
       grep "Number of reads out:" | awk '{print $8}')
-      PER_DUPS=$(awk -v a="${UNIQ_MAPPED_DEDUP}" -v b="${UNIQ_MAPPED}" 'BEGIN { print (1-a/b)*100 }')%
+      PER_DUPS=$(awk -v a="${UNIQ_MAPPED_DEDUP}" -v b="${UNIQ_MAPPED}" 'BEGIN { print (1-a/b)*100 }')
       UNIQ_MAPPED_SPIKE=$(cat ${SAMPLE}_spikein_deDup.log |
       grep "Input Reads:" | awk '{print $10}')
       UNIQ_MAPPED_DEDUP_SPIKE=$(cat ${SAMPLE}_spikein_deDup.log |
       grep "Number of reads out:" | awk '{print $8}')
-      PER_DUPS_SPIKE=$(awk -v a="${UNIQ_MAPPED_DEDUP_SPIKE}" -v b="${UNIQ_MAPPED_SPIKE}" 'BEGIN { print (1-a/b)*100}')%
+      PER_DUPS_SPIKE=$(awk -v a="${UNIQ_MAPPED_DEDUP_SPIKE}" -v b="${UNIQ_MAPPED_SPIKE}" 'BEGIN { print (1-a/b)*100}')
+
       echo ${UNIQ_MAPPED_DEDUP_SPIKE}
       echo ${UNIQ_MAPPED_SPIKE}
 
