@@ -72,11 +72,11 @@ cd <>
  2. that you are on the cluster with the correct modules loaded
  3. moved into the PROalign folder
 
-To use the pipeline on data with UMI on both sides:
+To use the pipeline on data with UMI on both sides, with the data files ending with R1_001.fastq.gz and R2_001.fastq.gz:
 
 
 ```
-    nextflow run PROalign.nf -profile slurm --files "/path/to/files/<>" \
+    nextflow run PROalign.nf -profile slurm --files "/path/to/files/*_R{1,2}_001.fastq.gz" \
     --FIVEP_UMI true \
     --THREEP_UMI true \
     -w /path/to/scratch/dir
