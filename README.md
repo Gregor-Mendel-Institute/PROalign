@@ -41,7 +41,7 @@ See e.g. https://tmuxcheatsheet.com/ and section [Short intro to tmux](#tmux)
 ### <a name="clone"></a>1. Clone the repo
 From  e.g. *your user folder in the lab folder* do:
 ```
-git clone https://ngs.vbcf.ac.at/repo/berger_pipelines/<>.git
+git clone https://ngs.vbcf.ac.at/repo/berger_pipelines/PROalign<>.git
 ```
 you might be asked for user and password, use the ones from your **forskalle** account
 ### 2. Create a folder with the inputs files (or links to the input files)
@@ -70,13 +70,13 @@ cd <>
 **Make sure you have:**
  1. completed the setup steps
  2. that you are on the cluster with the correct modules loaded
- 3. moved into the m<> folder
+ 3. moved into the PROalign folder
 
 To use the pipeline on data with UMI on both sides:
 
 
 ```
-    nextflow run main.nf -profile slurm --files "/path/to/files/<>" \
+    nextflow run PROalign.nf -profile slurm --files "/path/to/files/<>" \
     --FIVEP_UMI true \
     --THREEP_UMI true \
     -w /path/to/scratch/dir
